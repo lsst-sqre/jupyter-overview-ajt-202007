@@ -1,0 +1,370 @@
+#+OPTIONS: toc:nil num:nil
+#+REVEAL_ROOT: https://cdn.jsdelivr.net/npm/reveal.js
+#+REVEAL_HLEVEL: 2
+#+REVEAL_THEME: white
+#+REVEAL_EXTRA_CSS: ./local.css
+#+AUTHOR: Adam Thornton
+#+EMAIL: athornton@lsst.org
+#+TITLE: The Rubin Observatory Science Platform Notebook Aspect
+#+DATE:#+OPTIONS: num:nil
+#+REVEAL_INIT_OPTIONS: slideNumber: h/v
+#+REVEAL_PLUGINS: (highlight)
+
+* The Rubin Observatory Science Platform Notebook Aspect
+** Colloquially known as "nublado"
+*** Adam Thornton, 16 July 2020
+
+CC BY-NC 4.0
+
+https://creativecommons.org/licenses/by-nc/4.0/legalcode
+
+** Why not just use Zero To Jupyterhub?
+
+https://zero-to-jupyterhub.readthedocs.io/en/latest/
+
+I mean, it's right there at the top of the README:
+
+https://github.com/lsst-sqre/nublado/blob/master/README.md
+
+"Do Not Use This"
+
+** z2jh lacks (or lacked) features we required
+*** Persistent storage requires autoprovisioned PVs -- not available at NCSA
+*** No way to do shared persistent storage
+*** KubeSpawner currently lacks user namespace support
+*** Doesn't have a good way to do run-as-individual-user-uid
+*** When we did our initial versions, it didn't support JupyterLab
+
+** This is the second major rework, third semi-major rework
+*** First cut: everything was crammed into the spawner class, and it was super-grody.
+*** Second cut: The Great Refactor--move LSST-specific stuff to manager classes
+**** Introduce structured logging with Eliot
+**** Fix a bunch of things that were (wrongly) class variables
+**** Make spawned containers more dependent on ConfigMaps and less on env vars.
+
+** Architectural Debt Cleanup
+
+Christine suggested many of the rework items and the overall design is
+definitely improved.
+
+Finally we can reduce the bus factor without my telling you much stuff
+that's going to change soon.
+
+I hope.
+
+** Why did we get into Architectural Debt in the first place?
+
+Nublado -- formerly "jupyterlabdemo" started as, well, a demo.
+
+It didn't stay one.
+
+** Jupyterlabdemo to Nublado
+
+*** The Notebook Aspect quickly became a thing DM people relied upon.
+***  It quietly became the assumed final shape of the Science Platform Interactive Notebook
+Aspect.
+*** Then people wanted to start using it for stuff like telescope control and commissioning
+(It sucked less than the previous incumbent.)
+
+That meant that some of the things I'd done quickly and dirtily
+were a little *too* dirty.
+
+Awwww yeah.
+
+** Roadmap (tentative)
+
+*** Reduce amount of magical coupling between Hub and Lab
+
+Phase 1 of this is largely done, as of Tuesday: ConfigMaps will be used
+in preference to environmental variables in some big use-cases.
+
+Phase 2 is removing the environmental variable injection, which should
+wait until the old images have largely rolled off the spawner page (some
+rework required).
+
+*** Get to JupyterLab 2.x
+**** Have the container start the Lab interface by default
+(the notebook server behaves differently in 2.x)
+**** Rework (or discard) LSST-specific Lab extensions for 2.x
+**** Port (or discard) 3rd-party extensions that did not receive 2.x updates
+
+*** Attempt again to upstream user-namespace support in the KubeSpawner
+
+We will need to get it working on z2jh.
+https://github.com/jupyterhub/kubespawner/pull/387
+
+*** Socialize the need for manager classes, then genericize and upstream
+
+You don't need something like this in a classroom environment.  If you
+want to build a Science Platform, though, you probably do.  So maybe
+there are only 3 dozen sites that want this, but they're big and
+important sites.  We would need to convince them they want it.
+
+*** Semi-automate bleed-to-prod-candidate process
+
+This has been made more complicated by conda being unable to solve
+current stack environments, but I think we could write a small piece of
+software to extract the packages from a running image and write a
+requirements file for a test build.  That plus NotebookCI would give us
+more confidence and shorter turnarounds for lifting prod packages.
+
+** Desired Outcome of Roadmap Items
+
+*** Less code for us to maintain
+
+User namespace-aware spawner is certainly doable.  Manager layer?
+Unsure.
+
+*** Smaller, faster, less risky updates to prod Lab builds
+
+Automating package transplantation and smoke tests should help here.
+That leads to much more easily staying close to latest-released-version.
+
+*** Ability to parallelize effort
+
+We should be able to parallelize at least the upstreaming,
+Lab-modernization, and CI tracks.
+
+That also reduces the bus factor.
+
+** Deeper Dive
+
+** Standard Jupyterhub Model
+
+[[./assets/architecture.png]]
+
+** Rubin Observatory changes
+
+*** Per-user namespaces, quotas, and namespaced objects
+
+There is upstream interest in making user namespaces possible, but as
+far as I know they haven't thought through the need for ServiceAccounts,
+Roles, Rolebindings, and ConfigMaps created in each user's namespace.
+They'll get there.
+
+*** Customized profile lists
+
+Our options form is (at least potentially) built incorporating knowledge
+from the auth system (group membership, in particular).
+
+It appears that KubeSpawner has recently (?) acquired a
+[[https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#][profile list]] which could do a similar sort of thing.  I haven't
+investigated.
+
+*** Complex Volume Management
+
+Each instance of the LSP may have different filesystems available.  They
+come in a mixture of read-only and read-write, some of them should be
+shared-write, they may be direct GPFS or NFS, etc.
+
+*** Workflow Manager
+
+In addition to JupyterHub, we have a Workflow API Server that uses the
+same authentication header to drive noninteractive, document-driven,
+container spawns via Argo Workflows.  Think of it as the noninteractive
+API-driven version of the Hub.  It shares a lot of configuration with
+the Hub.
+
+** Encapsulation of our changes
+
+*** LSSTMiddleManager framework
+
+We create an LSSTMiddleManager object when we create a spawner.
+
+All the Middle Manager does is boss its direct reports around; it does
+no work of its own.
+
+We should extend it to allow new managers (even of novel types) to be
+registered at startup time.  That would solve the Workflow Manager issue
+described below.
+
+*** Subsidiary Managers
+**** Config object
+**** API Manager
+**** Environment Manager
+**** Namespace Manager
+**** Options Form Manager
+**** Quota Manager
+**** Volume Manager
+**** (Workflow Manager)
+
+*** Config object
+
+The Config object holds instance-specific (but not session-specific)
+details about the LSP Notebook Aspect.  For instance: FQDN to reach it,
+whether Multus is enabled, what the cull timeout should be, what the
+default image to serve is, and how many of each category (experimental,
+daily, weekly, release) to display.
+
+
+*** Config object (2)
+
+This is typically populated from environment variables in the Hub (or
+Workflow Manager), and has sane defaults if they are not supplied.  They
+typically are ultimately set from an instance-specific values.yaml file.
+
+This is a generic need, but the rest of the Jupyter community hasn't
+recognized it yet.
+
+*** API Manager
+
+The Spawner has an API client object, which is a singleton shared
+between instances.  We do enough work with K8s objects (mostly related
+to per-user namespaces, but volumes too) that it was worth creating a
+manager to hold the API clients.  Once you start doing namespace work,
+you need an RBAC API client as well, and then it really makes sense to
+break it out.
+
+*** Environment Manager
+
+The Environment Manager only exists to hold instance-specific, but not
+session-specific, environment details to be passed down into the spawned
+Lab.  Does that sound like a subset of what's in the Config object?
+
+Yes, yes it does: generation of the environmental dict could easily be a
+method on the Config object, and should be.
+
+*** Namespace Manager
+
+Since each spawner instance creates a new Middle Manager structure, this
+is a Namespace Manager for a particular spawn, and therefore a single
+user.  As our needs have grown more complex, because users need service
+accounts and the ability to create, manipulate, and destroy Dask pods
+and Workflows within their own namespaces, a dedicated manager for the
+non-pod, non-service objects within the user namespace is a good idea.
+
+*** Options Form Manager
+
+Responsible for generating the displayed HTML form from a template for a
+particular user in a particular instance.  With KubeSpawner's Profile
+List, we could maybe get away from this, but having a templating engine
+to generate the form is still a nice feature.
+
+*** Quota Manager
+
+Quotas can differ by user (depending, for instance, on group
+membership), but really this could be absorbed into the Namespace
+Manager with little difficulty.
+
+*** Volume Manager
+
+This is a feature other sites are going to wish for sooner than they
+realize.  Having a framework to drop a document (represented by a
+ConfigMap) on your Hub-or-equivalent, which then specifies user mount
+points, is a huge win.
+
+*** Volume Manager (2)
+
+Now that we are managing most of the session-specific spawning data in
+ConfigMaps (administered by the Namespace Manager, but mounted as a
+Volume from the Lab (or Dask/Workflow) perspective), the Volume Manager
+is even more necessary.
+
+*** Workflow Manager
+
+This isn't actually part of the ~jupyterhubtils~ package, but when the
+Workflow API Server creates a session, it instantiates a Middle Manager
+that also has an attached Workflow Manager, which is responsible for
+translating the session request into a Lab environment spec, creating a
+Workflow object, and submitting it to be run.  A dynamic loading
+framework for the Middle Manager would let us fold it back in.
+
+** Other Important Methods
+
+*** ~get_pod_manifest()~
+
+The Spawner (in our case LSSTSpawner, which is a
+MultiNamespacedKubeSpawner subclass) has a crucial method called
+~get_pod_manifest()~.  This is the piece that glues together all the
+knowledge from the manager objects to create the interactive user pod.
+Some of the managerial data, such as the contents of the Dask worker
+YAML, isn't even known until spawn time (e.g. image name).
+
+*** ~define_workflow()~
+
+The Workflow Dispatcher has a similar method called ~define_workflow()~.
+Because we use the same manager framework, we can use identical calls
+to, for instance, create the set of Volumes to mount to the Workflow.
+That in turn means that the Workflow Dispatcher itself is little but the
+API framework and the methods to define Workflow objects and give them
+to Kubernetes for instantiation.
+
+** Python Modules
+
+*** ~jupyterhubutils~
+
+Almost all of this functionality is contained in the [[https://pypi.org/project/jupyterhubutils/][jupyterhubutils]]
+package.  Currently workflow management is in its own package,
+[[https://pypi.org/project/wfdispatcher/][wfdispatcher]].
+
+*** Rename ~jupyterhubutils~
+
+That was a terrible name, because PyPi doesn't namespace.
+~rubin_lsp_hub_utils~ maybe?  (similarly for ~wfdispatcher~) We should
+also bring the workflow manager K8s manipulation parts back into it or
+have an "auxiliary managers" package or several for optional components.
+This is work that it probably only makes sense to do if we try to
+upstream the generic manager concept.
+
+*** And break it up a bit
+
+I wrote some generically-useful functions in ~jupyterhubutils~ such that
+I started using them in bits of ~jupyterlabutils~ (again, needs
+renaming), so we should probably refactor those out.
+#+BEGIN_SRC python
+from jupyterhubutils.utils import get_access_token, parse_access_token
+#+END_SRC
+
+Much of the stuff in ~jupyterhubutils.utils~ should be moved out; it's
+all helper functions anyway rather than classes.
+
+** JupyterLab work
+
+*** Needed Lab Container Updates
+**** JupyterLab 2.x
+**** TeXLive 2020
+
+*** TeXLive
+
+We use TeXLive for Export-as-PDF and stuff.  It's not strictly
+necessary, but it's nice to have.  It was ugly to do the first time, but
+2019 was much easier than 2018 (which was when I brought it in).  This
+won't be hard.
+
+*** JupyterLab 2.x Rubin Observatory Lab Extensions
+
+We touched a little on what needs doing earlier.
+
+We only have two first-party Lab extensions:
+~@lsst-sqre/jupyterlab-savequit~ and
+~@lsst-sqre/jupyterlab-lsstextensions~ (note that no matter how awful
+NPM is, at least it's namespaced).  Well, and Firefly is
+first-and-a-half party.
+
+*** JupyterLab 2.x Lab Extension Implementation
+
+I would very much like it if someone *good* at TypeScript took over
+these, but they are simple and will not be hard to port.  The first may
+be done for us already.  That person would have more, or at least
+faster, success than I will porting any third-party extensions that
+haven't made the leap to 2.x.
+
+*** JupyterLab 2.x Server Extensions
+
+Both of those lab extensions have corresponding server-side frameworks.
+That's in Python and is easy to work with.  The basic pattern is that
+you define a new route in the application, and implement its
+functionality in Python, and then you configure the Lab extension to
+talk to that route.
+
+** Conclusion
+
+I see three main tracks going forward, which can be parallelized, and
+each should have at least two people who can work on them:
+
+Hub/Spawning/Management Framework (and upstreaming of same)
+
+JupyterLab Environment (TypeScripty stuff)
+
+Bleed-to-prod-candidate automation
+
