@@ -12,7 +12,7 @@
 
 # To generate the HTML:
 #  install org-mode, ox-reveal, and htmlize packages
-#  M-x load-library ox-reveal
+#  M-x load-library ox-reveal (or add `require ox-reveal` to .emacs)
 #  C-C C-E R R
 
 * The Rubin Observatory Science Platform Notebook Aspect
