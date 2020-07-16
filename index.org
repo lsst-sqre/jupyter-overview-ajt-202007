@@ -146,6 +146,11 @@ That also reduces the bus factor.
 JupyterHub Architecture]])
 
 ** Rubin Observatory changes
+
+*** Modified diagram
+
+[[./assets/architecture-rubin.png]]
+
 *** Per-user namespaces, quotas, and namespaced objects
 
 There is upstream interest in making user namespaces possible, but as
@@ -160,7 +165,8 @@ from the auth system (group membership, in particular).
 
 It appears that KubeSpawner has recently (?) acquired a
 [[https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#][profile list]] which could do a similar sort of thing.  I haven't
-investigate
+investigated that yet.
+
 *** Complex Volume Management
 
 Each instance of the LSP may have different filesystems available.  They
@@ -176,6 +182,20 @@ API-driven version of the Hub.  It shares a lot of configuration with
 the Hub.
 
 ** Encapsulation of our changes
+*** Custom Authenticator class
+
+JupyterHub directly supports custom Auth/Spawner classes.  Our
+Authenticator is largely based on the ~mogthesprog/jwtauthenticator~
+class, but we farm out the actual token validation via the Gafaelfawr
+API.
+
+*** Custom Spawner class
+
+It's a MultiNamespacedKubeSpawner (which I believe we can get
+upstreamed) that also binds an LSSTMiddleManager, and contains a custom
+~get_pod_manifest()~ method to glue in the knowledge the Manager
+framework holds at user pod spawn time.
+
 *** LSSTMiddleManager framework
 
 We create an LSSTMiddleManager object when we create a spawner.
@@ -186,6 +206,13 @@ no work of its own.
 We should extend it to allow new managers (even of novel types) to be
 registered at startup time.  That would solve the Workflow Manager issue
 described below.
+
+*** Manager is Synchronous
+
+This makes it a little difficult to coordinate with the JupyterHub
+framework, which is mostly async.  We cheat in one case by having our
+authenticator class cache data (after an await) in an instance variable,
+which we can then read from the Namespace Manager.
 
 *** Subsidiary Managers
 **** Config object
