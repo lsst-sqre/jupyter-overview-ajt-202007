@@ -15,6 +15,8 @@
 #  M-x load-library ox-reveal (or add `require ox-reveal` to .emacs)
 #  C-C C-E R R
 
+# https://jira.lsstcorp.org/browse/DM-25974
+
 * The Rubin Observatory Science Platform Notebook Aspect
 ** Colloquially known as "nublado"
 *** Adam Thornton, 16 July 2020
