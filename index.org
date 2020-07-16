@@ -33,7 +33,7 @@ https://github.com/lsst-sqre/nublado/blob/master/README.md
 
 "Do Not Use This"
 
-** z2jh lacks (or lacked) required 
+** z2jh lacks (or lacked) required features
 + Persistent storage requires autoprovisioned PVs -- not available at NCSA
 + No way to do shared persistent storage/run-as-individual-user-with-groups
 + KubeSpawner currently lacks user namespace support
