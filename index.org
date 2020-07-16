@@ -141,6 +141,8 @@ That also reduces the bus factor.
 
 [[./assets/architecture.png]]
 
+[[https://zero-to-jupyterhub.readthedocs.io/en/latest/administrator/architecture.html]]
+
 ** Rubin Observatory changes
 *** Per-user namespaces, quotas, and namespaced objects
 
