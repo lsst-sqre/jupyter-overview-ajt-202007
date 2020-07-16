@@ -10,6 +10,11 @@
 #+REVEAL_INIT_OPTIONS: slideNumber: h/v
 #+REVEAL_PLUGINS: (highlight)
 
+# To generate the HTML:
+#  install org-mode, ox-reveal, and htmlize packages
+#  M-x load-library ox-reveal
+#  C-C C-E R R
+
 * The Rubin Observatory Science Platform Notebook Aspect
 ** Colloquially known as "nublado"
 *** Adam Thornton, 16 July 2020
@@ -29,18 +34,18 @@ https://github.com/lsst-sqre/nublado/blob/master/README.md
 "Do Not Use This"
 
 ** z2jh lacks (or lacked) features we required
-*** Persistent storage requires autoprovisioned PVs -- not available at NCSA
-*** No way to do shared persistent storage
-*** KubeSpawner currently lacks user namespace support
-*** Doesn't have a good way to do run-as-individual-user-uid
-*** When we did our initial versions, it didn't support JupyterLab
++ Persistent storage requires autoprovisioned PVs -- not available at NCSA
++ No way to do shared persistent storage
++ KubeSpawner currently lacks user namespace support
++ Doesn't have a good way to do run-as-individual-user-uid
++ When we did our initial versions, it didn't support JupyterLab
 
 ** This is the second major rework, third semi-major rework
 *** First cut: everything was crammed into the spawner class, and it was super-grody.
 *** Second cut: The Great Refactor--move LSST-specific stuff to manager classes
-**** Introduce structured logging with Eliot
-**** Fix a bunch of things that were (wrongly) class variables
-**** Make spawned containers more dependent on ConfigMaps and less on env vars.
++ Introduce structured logging with Eliot
++ Fix a bunch of things that were (wrongly) class variables
++ Make spawned containers more dependent on ConfigMaps and less on env vars.
 
 ** Architectural Debt Cleanup
 
@@ -72,7 +77,6 @@ were a little *too* dirty.
 Awwww yeah.
 
 ** Roadmap (tentative)
-
 *** Reduce amount of magical coupling between Hub and Lab
 
 Phase 1 of this is largely done, as of Tuesday: ConfigMaps will be used
@@ -103,11 +107,15 @@ important sites.  We would need to convince them they want it.
 *** Semi-automate bleed-to-prod-candidate process
 
 This has been made more complicated by conda being unable to solve
-current stack environments, but I think we could write a small piece of
-software to extract the packages from a running image and write a
-requirements file for a test build.  That plus NotebookCI would give us
-more confidence and shorter turnarounds for lifting prod packages.
+current stack environments, but...
 
+*** Bleed-to-prod-candidate automation
+I think we could write a small piece of software (in the form of a
+workflow) to extract the list of installed packages from a running
+(bleed) image and write a requirements file for a test build.
+
+That plus NotebookCI on the test-candidate images would give us more
+confidence and shorter turnarounds for lifting prod packages.
 ** Desired Outcome of Roadmap Items
 
 *** Less code for us to maintain
@@ -134,7 +142,6 @@ That also reduces the bus factor.
 [[./assets/architecture.png]]
 
 ** Rubin Observatory changes
-
 *** Per-user namespaces, quotas, and namespaced objects
 
 There is upstream interest in making user namespaces possible, but as
@@ -142,15 +149,14 @@ far as I know they haven't thought through the need for ServiceAccounts,
 Roles, Rolebindings, and ConfigMaps created in each user's namespace.
 They'll get there.
 
-*** Customized profile lists
+*** Customized Options Form
 
 Our options form is (at least potentially) built incorporating knowledge
 from the auth system (group membership, in particular).
 
 It appears that KubeSpawner has recently (?) acquired a
 [[https://jupyterhub-kubespawner.readthedocs.io/en/latest/spawner.html#][profile list]] which could do a similar sort of thing.  I haven't
-investigated.
-
+investigate
 *** Complex Volume Management
 
 Each instance of the LSP may have different filesystems available.  They
@@ -166,7 +172,6 @@ API-driven version of the Hub.  It shares a lot of configuration with
 the Hub.
 
 ** Encapsulation of our changes
-
 *** LSSTMiddleManager framework
 
 We create an LSSTMiddleManager object when we create a spawner.
@@ -195,7 +200,6 @@ details about the LSP Notebook Aspect.  For instance: FQDN to reach it,
 whether Multus is enabled, what the cull timeout should be, what the
 default image to serve is, and how many of each category (experimental,
 daily, weekly, release) to display.
-
 
 *** Config object (2)
 
@@ -270,7 +274,6 @@ Workflow object, and submitting it to be run.  A dynamic loading
 framework for the Middle Manager would let us fold it back in.
 
 ** Other Important Methods
-
 *** ~get_pod_manifest()~
 
 The Spawner (in our case LSSTSpawner, which is a
@@ -290,7 +293,6 @@ API framework and the methods to define Workflow objects and give them
 to Kubernetes for instantiation.
 
 ** Python Modules
-
 *** ~jupyterhubutils~
 
 Almost all of this functionality is contained in the [[https://pypi.org/project/jupyterhubutils/][jupyterhubutils]]
@@ -319,7 +321,6 @@ Much of the stuff in ~jupyterhubutils.utils~ should be moved out; it's
 all helper functions anyway rather than classes.
 
 ** JupyterLab work
-
 *** Needed Lab Container Updates
 **** JupyterLab 2.x
 **** TeXLive 2020
@@ -336,10 +337,11 @@ won't be hard.
 We touched a little on what needs doing earlier.
 
 We only have two first-party Lab extensions:
-~@lsst-sqre/jupyterlab-savequit~ and
-~@lsst-sqre/jupyterlab-lsstextensions~ (note that no matter how awful
-NPM is, at least it's namespaced).  Well, and Firefly is
-first-and-a-half party.
++ ~@lsst-sqre/jupyterlab-savequit~
++ ~@lsst-sqre/jupyterlab-lsstextensions~
+
+(note that no matter how awful NPM is, at least it's namespaced).  Well,
+and Firefly is first-and-a-half party.
 
 *** JupyterLab 2.x Lab Extension Implementation
 
@@ -362,9 +364,7 @@ talk to that route.
 I see three main tracks going forward, which can be parallelized, and
 each should have at least two people who can work on them:
 
-Hub/Spawning/Management Framework (and upstreaming of same)
-
-JupyterLab Environment (TypeScripty stuff)
-
-Bleed-to-prod-candidate automation
++ Hub/Spawning/Management Framework (and upstreaming of same)
++ JupyterLab Environment (TypeScripty stuff)
++ Bleed-to-prod-candidate automation
 
