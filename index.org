@@ -33,13 +33,11 @@ https://github.com/lsst-sqre/nublado/blob/master/README.md
 
 "Do Not Use This"
 
-** z2jh lacks (or lacked) features we required
+** z2jh lacks (or lacked) required 
 + Persistent storage requires autoprovisioned PVs -- not available at NCSA
-+ No way to do shared persistent storage
++ No way to do shared persistent storage/run-as-individual-user-with-groups
 + KubeSpawner currently lacks user namespace support
-+ Doesn't have a good way to do run-as-individual-user-uid
-+ When we did our initial versions, it didn't support JupyterLab
-
++ Initially didn't support JupyterLab
 ** This is the second major rework, third semi-major rework
 *** First cut: everything was crammed into the spawner class, and it was super-grody.
 *** Second cut: The Great Refactor--move LSST-specific stuff to manager classes
@@ -64,11 +62,13 @@ Nublado -- formerly "jupyterlabdemo" started as, well, a demo.
 It didn't stay one.
 
 ** Jupyterlabdemo to Nublado
++ The Notebook Aspect quickly became a thing DM people relied upon.
++ Having a working implementation wins.
+#+REVEAL: split
 
-*** The Notebook Aspect quickly became a thing DM people relied upon.
-***  It quietly became the assumed final shape of the Science Platform Interactive Notebook
-Aspect.
-*** Then people wanted to start using it for stuff like telescope control and commissioning
+Then people wanted to start using it for stuff like telescope control
+and commissioning.
+
 (It sucked less than the previous incumbent.)
 
 That meant that some of the things I'd done quickly and dirtily
@@ -79,12 +79,12 @@ Awwww yeah.
 ** Roadmap (tentative)
 *** Reduce amount of magical coupling between Hub and Lab
 
-Phase 1 of this is largely done, as of Tuesday: ConfigMaps will be used
+Phase 1: largely done, as of Bastille Day 2020: ConfigMaps will be used
 in preference to environmental variables in some big use-cases.
 
-Phase 2 is removing the environmental variable injection, which should
-wait until the old images have largely rolled off the spawner page (some
-rework required).
+Phase 2: removing now-unneeded environmental variable injection.  It
+should wait until the old images have largely rolled off the spawner
+page (some rework required).
 
 *** Get to JupyterLab 2.x
 **** Have the container start the Lab interface by default
@@ -100,9 +100,9 @@ https://github.com/jupyterhub/kubespawner/pull/387
 *** Socialize the need for manager classes, then genericize and upstream
 
 You don't need something like this in a classroom environment.  If you
-want to build a Science Platform, though, you probably do.  So maybe
-there are only 3 dozen sites that want this, but they're big and
-important sites.  We would need to convince them they want it.
+want to build a Science Platform, though, you probably do.  Maybe
+there are only 3 dozen sites that will need this, but they're big.  We
+need to convince them they need it.
 
 *** Semi-automate bleed-to-prod-candidate process
 
@@ -115,7 +115,7 @@ workflow) to extract the list of installed packages from a running
 (bleed) image and write a requirements file for a test build.
 
 That plus NotebookCI on the test-candidate images would give us more
-confidence and shorter turnarounds for lifting prod packages.
+confidence and shorter turnarounds for lifting package versions to prod.
 ** Desired Outcome of Roadmap Items
 
 *** Less code for us to maintain
@@ -340,14 +340,15 @@ We only have two first-party Lab extensions:
 + ~@lsst-sqre/jupyterlab-savequit~
 + ~@lsst-sqre/jupyterlab-lsstextensions~
 
-(note that no matter how awful NPM is, at least it's namespaced).  Well,
-and Firefly is first-and-a-half party.
+(note that no matter how awful NPM is, at least it's namespaced)
+Also, Firefly is, uh, first-and-a-half party.
 
 *** JupyterLab 2.x Lab Extension Implementation
 
 I would very much like it if someone *good* at TypeScript took over
-these, but they are simple and will not be hard to port.  The first may
-be done for us already.  That person would have more, or at least
+these, but they are simple and will not be hard to port.
+
+That person would have more, or at least
 faster, success than I will porting any third-party extensions that
 haven't made the leap to 2.x.
 
