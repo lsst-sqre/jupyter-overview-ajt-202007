@@ -196,7 +196,11 @@ upstreamed) that also binds an LSSTMiddleManager, and contains a custom
 ~get_pod_manifest()~ method to glue in the knowledge the Manager
 framework holds at user pod spawn time.
 
-*** LSSTMiddleManager framework
+*** Manager Spawner framework
+
+[[./assets/Rubin_Spawner_Manager.png]]
+
+*** LSSTMiddleManager
 
 We create an LSSTMiddleManager object when we create a spawner.
 
