@@ -78,13 +78,28 @@ Awwww yeah.
 
 ** Roadmap (tentative)
 *** Reduce amount of magical coupling between Hub and Lab
-
+*** ConfigMap-based configuration
 Phase 1: largely done, as of Bastille Day 2020: ConfigMaps will be used
-in preference to environmental variables in some big use-cases.
+in preference to environmental variables in some big use-cases:
+
++ identity files (~passwd~, ~group~, ~shadow~, ~gshadow~)
++ access token
++ Dask config yaml
+
+*** ConfigMap cleanup
 
 Phase 2: removing now-unneeded environmental variable injection.  It
 should wait until the old images have largely rolled off the spawner
 page (some rework required).
+
+There's still some informational stuff in the pod environment that we
+could make into a ConfigMap and mount as a JSON or YAML document, e.g.
+container guarantees and limits and image name/tag.
+
+*** ConfigMap limitations
+
+Some enviroment variables (e.g. ~LSST_DDS_DOMAIN~) are used by various
+components of the system, so they have to remain.
 
 *** Get to JupyterLab 2.x
 **** Have the container start the Lab interface by default
